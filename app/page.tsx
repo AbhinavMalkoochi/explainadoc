@@ -1,166 +1,181 @@
 "use client";
 
-import {
-  Authenticated,
-  Unauthenticated,
-  useMutation,
-  useQuery,
-} from "convex/react";
-import { api } from "../convex/_generated/api";
-import Link from "next/link";
-import { SignUpButton } from "@clerk/nextjs";
-import { SignInButton } from "@clerk/nextjs";
+import { useCallback } from "react";
 import { UserButton } from "@clerk/nextjs";
+import { DocumentProvider, useDocument } from "../components/DocumentContext";
+import { DocumentViewer } from "../components/DocumentViewer";
+import { ChatSidebar } from "../components/ChatSidebar";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sample content for demo
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SAMPLE_CONTENT = `Introduction to Calculus
+
+Calculus is the mathematical study of continuous change. It has two major branches: differential calculus and integral calculus.
+
+Differential Calculus
+
+Differential calculus concerns the study of rates of change and slopes of curves. The derivative of a function measures how a function's output changes as its input changes.
+
+The derivative of f(x) at a point x = a is defined as:
+
+f'(a) = lim(h→0) [f(a + h) - f(a)] / h
+
+This limit, if it exists, gives us the instantaneous rate of change of f at the point a.
+
+Basic Derivative Rules
+
+1. Power Rule: If f(x) = x^n, then f'(x) = n·x^(n-1)
+2. Constant Rule: If f(x) = c, then f'(x) = 0
+3. Sum Rule: (f + g)' = f' + g'
+4. Product Rule: (f·g)' = f'·g + f·g'
+5. Quotient Rule: (f/g)' = (f'·g - f·g') / g²
+
+Integral Calculus
+
+Integral calculus is concerned with accumulation of quantities and the areas under curves. The integral is the inverse operation of the derivative.
+
+The definite integral of f(x) from a to b is written as:
+
+∫[a to b] f(x) dx
+
+This represents the signed area between the curve y = f(x) and the x-axis, from x = a to x = b.
+
+Fundamental Theorem of Calculus
+
+The Fundamental Theorem of Calculus connects differentiation and integration:
+
+If F is an antiderivative of f on [a, b], then:
+∫[a to b] f(x) dx = F(b) - F(a)
+
+This theorem is one of the most important results in mathematics, as it provides a practical way to evaluate definite integrals.
+
+Practice Problems
+
+1. Find the derivative of f(x) = 3x⁴ - 2x² + 5x - 1
+2. Evaluate the integral ∫ (2x + 3) dx
+3. Find the area under y = x² from x = 0 to x = 2`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   return (
-    <>
-      <header className="sticky top-0 z-10 bg-background p-4 border-b-2 border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
-        Convex + Next.js + Clerk
-        <UserButton />
-      </header>
-      <main className="p-8 flex flex-col gap-8">
-        <h1 className="text-4xl font-bold text-center">
-          Convex + Next.js + Clerk
-        </h1>
-        <Authenticated>
-          <Content />
-        </Authenticated>
-        <Unauthenticated>
-          <SignInForm />
-        </Unauthenticated>
-      </main>
-    </>
+    <DocumentProvider initialContent={SAMPLE_CONTENT}>
+      <AppShell />
+    </DocumentProvider>
   );
 }
 
-function SignInForm() {
+// ─────────────────────────────────────────────────────────────────────────────
+// App Shell
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AppShell() {
   return (
-    <div className="flex flex-col gap-8 w-96 mx-auto">
-      <p>Log in to see the numbers</p>
-      <SignInButton mode="modal">
-        <button className="bg-foreground text-background px-4 py-2 rounded-md">
-          Sign in
-        </button>
-      </SignInButton>
-      <SignUpButton mode="modal">
-        <button className="bg-foreground text-background px-4 py-2 rounded-md">
-          Sign up
-        </button>
-      </SignUpButton>
+    <div className="flex h-screen flex-col overflow-hidden">
+      <Header />
+
+      <div className="flex flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden bg-[var(--background)]">
+          <DocumentViewer />
+        </main>
+
+        <aside className="flex w-[360px] flex-col border-l border-[var(--border-light)] glass-subtle">
+          <ChatSidebar />
+        </aside>
+      </div>
     </div>
   );
 }
 
-function Content() {
-  const { viewer, numbers } =
-    useQuery(api.myFunctions.listNumbers, {
-      count: 10,
-    }) ?? {};
-  const addNumber = useMutation(api.myFunctions.addNumber);
+// ─────────────────────────────────────────────────────────────────────────────
+// Header
+// ─────────────────────────────────────────────────────────────────────────────
 
-  if (viewer === undefined || numbers === undefined) {
-    return (
-      <div className="mx-auto">
-        <p>loading... (consider a loading skeleton)</p>
-      </div>
-    );
-  }
+function Header() {
+  const { state, setContent, addHighlight, addComment, dispatch } = useDocument();
+
+  const handleLoadDocument = useCallback(() => {
+    const text = prompt("Paste your document text:");
+    if (text) {
+      dispatch({ type: "RESET" });
+      setContent(text);
+    }
+  }, [dispatch, setContent]);
+
+  const handleAddSampleHighlight = useCallback(() => {
+    const content = state.content;
+    if (!content) return;
+
+    const searchTerm = "derivative";
+    const start = content.toLowerCase().indexOf(searchTerm);
+    if (start === -1) return;
+
+    const id = `hl-${Date.now()}`;
+    addHighlight({
+      id,
+      start,
+      end: start + searchTerm.length,
+      color: "yellow",
+    });
+
+    addComment({
+      id: `comment-${Date.now()}`,
+      highlightId: id,
+      text: "The derivative measures the instantaneous rate of change of a function.",
+      createdAt: Date.now(),
+    });
+  }, [state.content, addHighlight, addComment]);
 
   return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto">
-      <p>Welcome {viewer ?? "Anonymous"}!</p>
-      <p>
-        Click the button below and open this page in another window - this data
-        is persisted in the Convex cloud database!
-      </p>
-      <p>
-        <button
-          className="bg-foreground text-background text-sm px-4 py-2 rounded-md"
-          onClick={() => {
-            void addNumber({ value: Math.floor(Math.random() * 10) });
-          }}
-        >
-          Add a random number
-        </button>
-      </p>
-      <p>
-        Numbers:{" "}
-        {numbers?.length === 0
-          ? "Click the button!"
-          : (numbers?.join(", ") ?? "...")}
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          convex/myFunctions.ts
-        </code>{" "}
-        to change your backend
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          app/page.tsx
-        </code>{" "}
-        to change your frontend
-      </p>
-      <p>
-        See the{" "}
-        <Link href="/server" className="underline hover:no-underline">
-          /server route
-        </Link>{" "}
-        for an example of loading data in a server component
-      </p>
-      <div className="flex flex-col">
-        <p className="text-lg font-bold">Useful resources:</p>
-        <div className="flex gap-2">
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Convex docs"
-              description="Read comprehensive documentation for all Convex features."
-              href="https://docs.convex.dev/home"
-            />
-            <ResourceCard
-              title="Stack articles"
-              description="Learn about best practices, use cases, and more from a growing
-            collection of articles, videos, and walkthroughs."
-              href="https://www.typescriptlang.org/docs/handbook/2/basic-types.html"
-            />
-          </div>
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Templates"
-              description="Browse our collection of templates to get started quickly."
-              href="https://www.convex.dev/templates"
-            />
-            <ResourceCard
-              title="Discord"
-              description="Join our developer community to ask questions, trade tips & tricks,
-            and show off your projects."
-              href="https://www.convex.dev/community"
-            />
-          </div>
+    <header className="glass sticky top-0 z-20 flex h-14 flex-none items-center justify-between border-b border-[var(--border-light)] px-5">
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-sm font-semibold text-[var(--text-primary)]">
+            ExplainaDoc
+          </h1>
+          <p className="text-[11px] text-[var(--text-tertiary)]">
+            Learning workspace
+          </p>
         </div>
       </div>
-    </div>
-  );
-}
 
-function ResourceCard({
-  title,
-  description,
-  href,
-}: {
-  title: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2 bg-slate-200 dark:bg-slate-800 p-4 rounded-md h-28 overflow-auto">
-      <a href={href} className="text-sm underline hover:no-underline">
-        {title}
-      </a>
-      <p className="text-xs">{description}</p>
-    </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleLoadDocument}
+          className="
+            rounded-[var(--radius-md)] px-3 py-1.5
+            text-xs font-medium text-[var(--text-secondary)]
+            transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]
+          "
+        >
+          Load Document
+        </button>
+
+        <button
+          onClick={handleAddSampleHighlight}
+          className="
+            rounded-[var(--radius-md)] px-3 py-1.5
+            text-xs font-medium text-[var(--text-secondary)]
+            transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]
+          "
+        >
+          + Demo Highlight
+        </button>
+
+        <div className="ml-2 h-6 w-px bg-[var(--border-light)]" />
+
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox: "h-8 w-8",
+            },
+          }}
+        />
+      </div>
+    </header>
   );
 }
