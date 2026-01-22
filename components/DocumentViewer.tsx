@@ -270,7 +270,6 @@ function EmptyState() {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="text-center">
-        <div className="mb-4 text-6xl opacity-20">📄</div>
         <h2 className="mb-2 text-xl font-medium text-[var(--text-primary)]">
           No document loaded
         </h2>

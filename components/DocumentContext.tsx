@@ -27,14 +27,6 @@ export interface Comment {
   createdAt: number;
 }
 
-export interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  citedHighlightIds?: string[];
-  createdAt: number;
-}
-
 export interface DocumentState {
   /** Plain text content of the document */
   content: string;
@@ -42,14 +34,10 @@ export interface DocumentState {
   highlights: Highlight[];
   /** Comments attached to highlights */
   comments: Comment[];
-  /** Chat message history */
-  messages: ChatMessage[];
   /** ID of highlight to scroll into view */
   scrollToHighlightId: string | null;
   /** ID of highlight currently in focus (others dimmed) */
   focusedHighlightId: string | null;
-  /** Loading state for async operations */
-  isLoading: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,11 +51,8 @@ type DocumentAction =
   | { type: "CLEAR_HIGHLIGHTS" }
   | { type: "ADD_COMMENT"; payload: Comment }
   | { type: "REMOVE_COMMENT"; payload: string }
-  | { type: "ADD_MESSAGE"; payload: ChatMessage }
-  | { type: "CLEAR_MESSAGES" }
   | { type: "SCROLL_TO_HIGHLIGHT"; payload: string | null }
   | { type: "SET_FOCUSED_HIGHLIGHT"; payload: string | null }
-  | { type: "SET_LOADING"; payload: boolean }
   | { type: "RESET" };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,10 +63,8 @@ const initialState: DocumentState = {
   content: "",
   highlights: [],
   comments: [],
-  messages: [],
   scrollToHighlightId: null,
   focusedHighlightId: null,
-  isLoading: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,20 +106,11 @@ function documentReducer(
         comments: state.comments.filter((c) => c.id !== action.payload),
       };
 
-    case "ADD_MESSAGE":
-      return { ...state, messages: [...state.messages, action.payload] };
-
-    case "CLEAR_MESSAGES":
-      return { ...state, messages: [] };
-
     case "SCROLL_TO_HIGHLIGHT":
       return { ...state, scrollToHighlightId: action.payload };
 
     case "SET_FOCUSED_HIGHLIGHT":
       return { ...state, focusedHighlightId: action.payload };
-
-    case "SET_LOADING":
-      return { ...state, isLoading: action.payload };
 
     case "RESET":
       return initialState;
@@ -158,7 +132,6 @@ interface DocumentContextValue {
   addHighlight: (highlight: Highlight) => void;
   removeHighlight: (id: string) => void;
   addComment: (comment: Comment) => void;
-  addMessage: (message: ChatMessage) => void;
   scrollToHighlight: (id: string | null) => void;
   setFocusedHighlight: (id: string | null) => void;
 }
@@ -204,12 +177,6 @@ export function DocumentProvider({
     []
   );
 
-  const addMessage = useCallback(
-    (message: ChatMessage) =>
-      dispatch({ type: "ADD_MESSAGE", payload: message }),
-    []
-  );
-
   const scrollToHighlight = useCallback(
     (id: string | null) =>
       dispatch({ type: "SCROLL_TO_HIGHLIGHT", payload: id }),
@@ -229,7 +196,6 @@ export function DocumentProvider({
     addHighlight,
     removeHighlight,
     addComment,
-    addMessage,
     scrollToHighlight,
     setFocusedHighlight,
   };

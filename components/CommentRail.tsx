@@ -127,7 +127,6 @@ function EmptyCommentRail() {
   return (
     <div className="flex h-full items-center justify-center p-4">
       <div className="text-center">
-        <div className="mb-2 text-3xl opacity-20">💬</div>
         <p className="text-xs text-[var(--text-secondary)]">
           No comments yet
         </p>

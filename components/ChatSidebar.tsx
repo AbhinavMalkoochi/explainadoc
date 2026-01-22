@@ -1,34 +1,71 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useDocument, type ChatMessage } from "./DocumentContext";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { useDocument } from "./DocumentContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mock data for placeholder UI
+// Placeholder message for empty state
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PLACEHOLDER_MESSAGES: ChatMessage[] = [
+const PLACEHOLDER_MESSAGES: UIMessage[] = [
   {
     id: "msg-1",
     role: "assistant",
-    content:
-      "Ask me about any section and I’ll point to the exact passage and explain it clearly.",
-    createdAt: Date.now() - 60000,
+    parts: [
+      {
+        type: "text",
+        text: "Ask me about any section and I’ll point to the exact passage and explain it clearly.",
+      },
+    ],
   },
 ];
+
+type TextRange = { start: number; end: number };
+
+const CITATION_REGEX = /\[(\d+):(\d+)\]/g;
+
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("");
+}
+
+function extractCitations(text: string): TextRange[] {
+  const ranges: TextRange[] = [];
+  for (const match of text.matchAll(CITATION_REGEX)) {
+    const start = Number(match[1]);
+    const end = Number(match[2]);
+    if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
+      ranges.push({ start, end });
+    }
+  }
+  return ranges;
+}
+
+function stripCitations(text: string): string {
+  return text.replace(CITATION_REGEX, "").replace(/\s{2,}/g, " ").trim();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ChatSidebar() {
-  const { state, addMessage, scrollToHighlight, setFocusedHighlight } =
+  const { state, addHighlight, scrollToHighlight, setFocusedHighlight } =
     useDocument();
-  const { messages, highlights, isLoading } = state;
+  const { content, highlights } = state;
+
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
 
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isLoading = status === "streaming" || status === "submitted";
 
   // Use placeholder messages if empty
   const displayMessages =
@@ -49,19 +86,11 @@ export function ChatSidebar() {
     []
   );
 
-  // Handle send (placeholder: echo back with mock response)
-  const handleSend = useCallback(() => {
+  // Handle send
+  const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
 
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: `msg-user-${Date.now()}`,
-      role: "user",
-      content: trimmed,
-      createdAt: Date.now(),
-    };
-    addMessage(userMessage);
     setInput("");
 
     // Reset textarea height
@@ -69,25 +98,15 @@ export function ChatSidebar() {
       inputRef.current.style.height = "auto";
     }
 
-    // Simulate assistant response (placeholder)
-    setTimeout(() => {
-      const citedIds =
-        highlights.length > 0 ? [highlights[0].id] : [];
-
-      const assistantMessage: ChatMessage = {
-        id: `msg-assistant-${Date.now()}`,
-        role: "assistant",
-        content: `I found relevant information in the document. ${
-          citedIds.length > 0
-            ? 'Click "Jump to source" to see the highlighted section.'
-            : "Try adding some highlights to the document first."
-        }`,
-        citedHighlightIds: citedIds,
-        createdAt: Date.now(),
-      };
-      addMessage(assistantMessage);
-    }, 800);
-  }, [input, isLoading, addMessage, highlights]);
+    await sendMessage(
+      { text: trimmed },
+      {
+        body: {
+          document: content,
+        },
+      }
+    );
+  }, [content, input, isLoading, sendMessage]);
 
   // Handle Enter key (Shift+Enter for new line)
   const handleKeyDown = useCallback(
@@ -102,11 +121,29 @@ export function ChatSidebar() {
 
   // Jump to cited highlight
   const handleJumpToSource = useCallback(
-    (highlightId: string) => {
+    (range: TextRange) => {
+      const existing = highlights.find(
+        (highlight) =>
+          highlight.start === range.start && highlight.end === range.end
+      );
+
+      const highlightId =
+        existing?.id ??
+        `hl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      if (!existing) {
+        addHighlight({
+          id: highlightId,
+          start: range.start,
+          end: range.end,
+          color: "blue",
+        });
+      }
+
       scrollToHighlight(highlightId);
       setFocusedHighlight(highlightId);
     },
-    [scrollToHighlight, setFocusedHighlight]
+    [addHighlight, highlights, scrollToHighlight, setFocusedHighlight]
   );
 
   return (
@@ -135,7 +172,7 @@ export function ChatSidebar() {
             rows={1}
             className="
               flex-1 resize-none bg-transparent px-2 py-1.5
-              text-sm text-[var(--text-primary)]
+              text-[15px] text-[var(--text-primary)]
               placeholder:text-[var(--text-tertiary)]
               focus:outline-none
             "
@@ -168,14 +205,16 @@ export function ChatSidebar() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface MessageBubbleProps {
-  message: ChatMessage;
-  onJumpToSource: (highlightId: string) => void;
+  message: UIMessage;
+  onJumpToSource: (range: TextRange) => void;
 }
 
 function MessageBubble({ message, onJumpToSource }: MessageBubbleProps) {
   const isUser = message.role === "user";
-  const hasCitations =
-    message.citedHighlightIds && message.citedHighlightIds.length > 0;
+  const rawText = getMessageText(message);
+  const content = stripCitations(rawText);
+  const citations = extractCitations(rawText);
+  const hasCitations = citations.length > 0;
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -191,20 +230,20 @@ function MessageBubble({ message, onJumpToSource }: MessageBubbleProps) {
       >
         <p
           className={`
-            text-sm leading-relaxed whitespace-pre-wrap
+            text-[15px] leading-relaxed whitespace-pre-wrap
             ${isUser ? "" : "text-[var(--text-primary)]"}
           `}
         >
-          {message.content}
+          {content}
         </p>
 
         {/* Citation buttons */}
         {hasCitations && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {message.citedHighlightIds!.map((highlightId, index) => (
+            {citations.map((citation, index) => (
               <button
-                key={highlightId}
-                onClick={() => onJumpToSource(highlightId)}
+                key={`${citation.start}-${citation.end}-${index}`}
+                onClick={() => onJumpToSource(citation)}
                 className="
                   inline-flex items-center gap-1 rounded-full
                   bg-[var(--accent-soft)] px-2.5 py-1

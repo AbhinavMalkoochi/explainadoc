@@ -12,8 +12,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.14",
+    "@ai-sdk/react": "^3.0.46",
     "@clerk/clerk-react": "^5.25.0",
     "@clerk/nextjs": "^6.12.6",
+    "ai": "^6.0.44",
     "convex": "^1.29.1",
     "next": "15.5.4",
     "react": "^19.0.0",
