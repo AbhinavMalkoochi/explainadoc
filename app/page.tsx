@@ -78,7 +78,7 @@ function AppShell() {
       <Header />
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-hidden bg-[var(--background)]">
+        <main className="flex-1 overflow-hidden bg-transparent">
           <DocumentViewer />
         </main>
 
