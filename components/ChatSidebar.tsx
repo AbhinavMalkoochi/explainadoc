@@ -59,7 +59,16 @@ export function ChatSidebar() {
   const { content, highlights } = state;
 
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      prepareSendMessagesRequest: ({ id, messages: outgoingMessages }) => ({
+        body: {
+          id,
+          messages: outgoingMessages,
+          document: content,
+        },
+      }),
+    }),
   });
 
   const [input, setInput] = useState("");
@@ -98,15 +107,8 @@ export function ChatSidebar() {
       inputRef.current.style.height = "auto";
     }
 
-    await sendMessage(
-      { text: trimmed },
-      {
-        body: {
-          document: content,
-        },
-      }
-    );
-  }, [content, input, isLoading, sendMessage]);
+    await sendMessage({ text: trimmed });
+  }, [input, isLoading, sendMessage]);
 
   // Handle Enter key (Shift+Enter for new line)
   const handleKeyDown = useCallback(
