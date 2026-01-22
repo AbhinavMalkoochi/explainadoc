@@ -10,6 +10,7 @@ const SYSTEM_PROMPT = `You are an intelligent document assistant. You help users
 4. Providing citations to support your answers
 
 When referencing text, provide exact character positions in format: [start:end].
+If the question has multiple parts, include multiple citations in the order you address them.
 Only cite ranges that exist in the provided document.`;
 
 export async function POST(req: Request) {

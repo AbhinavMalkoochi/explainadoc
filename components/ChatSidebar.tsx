@@ -74,6 +74,7 @@ export function ChatSidebar() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastProcessedMessageIdRef = useRef<string | null>(null);
   const isLoading = status === "streaming" || status === "submitted";
 
   // Use placeholder messages if empty
@@ -84,6 +85,57 @@ export function ChatSidebar() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [displayMessages.length]);
+
+  // Auto-highlight and step through citations for assistant replies
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.role !== "assistant") return;
+    if (lastProcessedMessageIdRef.current === lastMessage.id) return;
+
+    const rawText = getMessageText(lastMessage);
+    const citations = extractCitations(rawText)
+      .map((range) => ({
+        start: Math.max(0, range.start),
+        end: Math.min(range.end, content.length),
+      }))
+      .filter((range) => range.end > range.start);
+
+    lastProcessedMessageIdRef.current = lastMessage.id;
+
+    if (citations.length === 0) return;
+
+    const highlightIds = citations.map((range) => {
+      const existing = highlights.find(
+        (highlight) =>
+          highlight.start === range.start && highlight.end === range.end
+      );
+
+      if (existing) return existing.id;
+
+      const highlightId = `hl-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      addHighlight({
+        id: highlightId,
+        start: range.start,
+        end: range.end,
+        color: "blue",
+      });
+
+      return highlightId;
+    });
+
+    const stepThrough = async () => {
+      for (const highlightId of highlightIds) {
+        scrollToHighlight(highlightId);
+        setFocusedHighlight(highlightId);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+    };
+
+    void stepThrough();
+  }, [addHighlight, content.length, highlights, messages, scrollToHighlight, setFocusedHighlight]);
 
   // Auto-resize textarea
   const handleInputChange = useCallback(
