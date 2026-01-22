@@ -146,11 +146,20 @@ export function DocumentViewer() {
   );
 
   // Clear focus when clicking outside highlights
-  const handleContainerClick = useCallback(
+  const handleContainerPointerDown = useCallback(
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("[data-highlight-id]")) return;
       setFocusedHighlight(null);
+    },
+    [setFocusedHighlight]
+  );
+
+  const handleEditableKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Escape") {
+        setFocusedHighlight(null);
+      }
     },
     [setFocusedHighlight]
   );
@@ -171,7 +180,7 @@ export function DocumentViewer() {
   return (
     <div
       ref={containerRef}
-      onClick={handleContainerClick}
+      onMouseDown={handleContainerPointerDown}
       className={`
         relative h-full overflow-y-auto p-8
         ${isFocusMode ? "focus-mode" : ""}
@@ -185,6 +194,7 @@ export function DocumentViewer() {
             suppressContentEditableWarning
             spellCheck
             onInput={handleContentInput}
+            onKeyDown={handleEditableKeyDown}
           >
             {segments.map((segment, index) => {
               if (segment.highlight) {
