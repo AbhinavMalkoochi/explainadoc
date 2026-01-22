@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { UserButton } from "@clerk/nextjs";
 import { DocumentProvider, useDocument } from "../components/DocumentContext";
 import { DocumentViewer } from "../components/DocumentViewer";
 import { ChatSidebar } from "../components/ChatSidebar";
@@ -168,13 +167,7 @@ function Header() {
 
         <div className="ml-2 h-6 w-px bg-[var(--border-light)]" />
 
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox: "h-8 w-8",
-            },
-          }}
-        />
+       
       </div>
     </header>
   );
