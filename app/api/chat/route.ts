@@ -21,7 +21,10 @@ If the question has multiple parts, include multiple citations in the order you 
 Only cite ranges that exist in the provided document.
 
 Use tools to locate exact citation ranges. Prefer tool-assisted ranges over guessing.
-If you need to verify a range, call the excerpt tool and compare it to your intended quote.`;
+If you need to verify a range, call the excerpt tool and compare it to your intended quote.
+
+Critical rule: Every answer about the document MUST include at least one citation in the [start:end] format.
+If you cannot find a relevant passage in the document, reply only with: "I can’t find that in the document."`;
 
 type CitationRange = {
   start: number;
